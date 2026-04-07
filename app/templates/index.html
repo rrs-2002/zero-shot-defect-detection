@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="jumbotron p-5 mb-4 bg-light rounded-3">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold">Zero-Shot Defect Detection</h1>
+        <p class="col-md-8 fs-4">Welcome to the defect detection system. Upload your images to verify defects using our
+            zero-shot learning model.</p>
+        <a class="btn btn-primary btn-lg" href="{{ url_for('main.dashboard') }}" role="button">Go to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,104 @@
+[
+    {
+        "Model_Name": "WinCLIP (this project)",
+        "Core_Architecture": "Window-based CLIP with compositional prompt ensemble",
+        "Key_Strengths": "Sliding window analysis excels at finding fine structural anomalies and missing components (screws, transistors).",
+        "Limitations": "Lower global classification AUROC compared to newer methods; slower on CPU.",
+        "Best_Use_Case": "Structural defects, logical anomalies, and small missing components on rigid objects.",
+        "Zero_Shot_Performance_Notes": "Evaluated on MVTec AD (15 categories, 30 samples/sub-folder, GPU): avg AU-ROC = 0.7155, avg F1-Score = 0.8903.",
+        "Per_Category_Results": {
+            "bottle": {
+                "AU-ROC": 0.9349,
+                "F1-Score": 0.9333
+            },
+            "cable": {
+                "AU-ROC": 0.5569,
+                "F1-Score": 0.8638
+            },
+            "capsule": {
+                "AU-ROC": 0.6968,
+                "F1-Score": 0.9153
+            },
+            "carpet": {
+                "AU-ROC": 0.6778,
+                "F1-Score": 0.8641
+            },
+            "grid": {
+                "AU-ROC": 0.7886,
+                "F1-Score": 0.8636
+            },
+            "hazelnut": {
+                "AU-ROC": 0.7567,
+                "F1-Score": 0.8284
+            },
+            "leather": {
+                "AU-ROC": 0.95,
+                "F1-Score": 0.9399
+            },
+            "metal_nut": {
+                "AU-ROC": 0.3377,
+                "F1-Score": 0.8942
+            },
+            "pill": {
+                "AU-ROC": 0.3342,
+                "F1-Score": 0.9156
+            },
+            "screw": {
+                "AU-ROC": 0.8756,
+                "F1-Score": 0.9243
+            },
+            "tile": {
+                "AU-ROC": 0.9433,
+                "F1-Score": 0.9412
+            },
+            "toothbrush": {
+                "AU-ROC": 0.5722,
+                "F1-Score": 0.8406
+            },
+            "transistor": {
+                "AU-ROC": 0.6842,
+                "F1-Score": 0.7723
+            },
+            "wood": {
+                "AU-ROC": 0.9754,
+                "F1-Score": 0.9672
+            },
+            "zipper": {
+                "AU-ROC": 0.6482,
+                "F1-Score": 0.8914
+            }
+        }
+    },
+    {
+        "Model_Name": "AnomalyCLIP",
+        "Core_Architecture": "Object-agnostic text prompt learning with CLIP backbone",
+        "Key_Strengths": "Learns generalizable, object-agnostic prompts \u2014 excels on texture-heavy categories (carpet, tile).",
+        "Limitations": "Less specialized for fine structural / logical anomalies.",
+        "Best_Use_Case": "Texture-based defect detection across a wide range of object types.",
+        "Zero_Shot_Performance_Notes": "Benchmark (MVTec AD): ~0.916 Classification AUROC, ~0.907 Segmentation AUROC. Significantly outperforms WinCLIP on global metrics."
+    },
+    {
+        "Model_Name": "AdaptCLIP",
+        "Core_Architecture": "Hybrid static + dynamic learnable prompts with alternating visual/textual optimization",
+        "Key_Strengths": "Adapts to each test image dynamically without any training data; jointly optimizes both modalities.",
+        "Limitations": "Computationally heavier at inference due to dynamic adaptation steps.",
+        "Best_Use_Case": "High-variability appearance settings where training is not available.",
+        "Zero_Shot_Performance_Notes": "Benchmark: ~89.6% pixel-AUROC in zero-shot settings on MVTec AD."
+    },
+    {
+        "Model_Name": "AnomalyGPT",
+        "Core_Architecture": "LLM integrated with a Vision-Language Model (VLM)",
+        "Key_Strengths": "No manual threshold tuning required; supports multi-turn textual reasoning and natural language defect explanations.",
+        "Limitations": "High computational cost from LLM inference; latency unsuitable for real-time industrial lines.",
+        "Best_Use_Case": "Interactive, explainable inspection pipelines where human-readable reasoning is required.",
+        "Zero_Shot_Performance_Notes": "Benchmark: Leverages large-scale LLM world knowledge for superior reasoning without manual calibration."
+    },
+    {
+        "Model_Name": "FiLo",
+        "Core_Architecture": "LLM + Grounding DINO for fine-grained visual grounding",
+        "Key_Strengths": "Targets micro-defects by grounding detailed textual descriptions to precise image regions.",
+        "Limitations": "Requires multiple heavy models (LLM + Grounding DINO), increasing deployment complexity.",
+        "Best_Use_Case": "Micro-defect detection where exact text-to-region grounding is critical.",
+        "Zero_Shot_Performance_Notes": "Benchmark: State-of-the-art on fine-grained anomaly detection benchmarks."
+    }
+]

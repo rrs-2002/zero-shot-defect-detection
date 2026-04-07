@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <!-- Left Column: Controls -->
+    <div class="col-md-4">
+        
+        <!-- Tabbed Interface for Input Method -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="inputTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="upload-tab" data-bs-toggle="tab" href="#upload" role="tab">Upload Image</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="camera-tab" data-bs-toggle="tab" href="#camera" role="tab">Live Camera</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <!-- Common Category Selector -->
+                <div class="mb-3">
+                    <label for="category" class="form-label fw-bold">Object Category</label>
+                    <select class="form-select" id="category" required>
+                        {% for obj in objects %}
+                        <option value="{{ obj }}">{{ obj|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <hr>
+
+                <div class="tab-content" id="inputTabsContent">
+                    <!-- Upload Tab -->
+                    <div class="tab-pane fade show active" id="upload" role="tabpanel">
+                        <form id="uploadForm">
+                            <div class="mb-3">
+                                <label for="imageFile" class="form-label">Select Image File</label>
+                                <input class="form-control" type="file" id="imageFile" accept="image/*" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" id="analyzeBtn">
+                                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                Analyze Upload
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Camera Tab -->
+                    <div class="tab-pane fade" id="camera" role="tabpanel">
+                        <div class="camera-container text-center mb-3">
+                            <video id="webcamVideo" class="w-100 bg-dark rounded d-none" autoplay playsinline></video>
+                            <canvas id="webcamCanvas" class="d-none"></canvas>
+                        </div>
+                        <button type="button" class="btn btn-secondary w-100 mb-2" id="startCameraBtn">
+                            Turn On Camera
+                        </button>
+                        <button type="button" class="btn btn-success w-100 d-none" id="captureAnalyzeBtn">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            Capture & Analyze Snapshot
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Meta Card -->
+        <div class="card mt-3 d-none" id="resultMeta">
+            <div class="card-body">
+                <h5 class="card-title">Analysis Result</h5>
+                <p><strong>Status:</strong> <span id="defectStatus">--</span></p>
+                <p><strong>Anomaly Score:</strong> <span id="anomalyScore">--</span></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column: Visual Output -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                 Visual Inspection Heatmap
+            </div>
+            <div class="card-body text-center" style="min-height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                <p id="placeholderText" class="text-muted">Select an input method and run analysis to see the defect heatmap.</p>
+                <img id="resultImage" src="" class="img-fluid d-none shadow-sm rounded" alt="Defect Heatmap" style="max-height: 600px;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- UI Helpers ---
+function setLoadingState(isLoading, btnId, defaultText) {
+    const btn = document.getElementById(btnId);
+    const spinner = btn.querySelector('.spinner-border');
+    btn.disabled = isLoading;
+    if (isLoading) {
+        spinner.classList.remove('d-none');
+        document.getElementById('resultImage').classList.add('d-none');
+        document.getElementById('placeholderText').textContent = "Analyzing... This will take ~5 seconds (CPU mode).";
+        document.getElementById('placeholderText').classList.remove('d-none');
+        document.getElementById('resultMeta').classList.add('d-none');
+    } else {
+        spinner.classList.add('d-none');
+    }
+}
+
+function handleAnalysisResult(data) {
+    if (data.error) {
+        alert('Error: ' + data.error);
+        document.getElementById('placeholderText').textContent = "Error occurred.";
+        return;
+    }
+    document.getElementById('resultImage').src = data.result_image;
+    document.getElementById('resultImage').classList.remove('d-none');
+    document.getElementById('placeholderText').classList.add('d-none');
+    document.getElementById('defectStatus').textContent = data.status;
+    document.getElementById('defectStatus').className = data.status === 'Defect Detected' ? 'text-danger fw-bold fs-5' : 'text-success fw-bold fs-5';
+    document.getElementById('anomalyScore').textContent = data.score.toFixed(4);
+    document.getElementById('resultMeta').classList.remove('d-none');
+}
+
+// --- Upload Logic ---
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('image', document.getElementById('imageFile').files[0]);
+    formData.append('category', document.getElementById('category').value);
+    
+    setLoadingState(true, 'analyzeBtn', 'Analyze Upload');
+    try {
+        const response = await fetch('/analyze', { method: 'POST', body: formData });
+        const data = await response.json();
+        handleAnalysisResult(data);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Connection Error.');
+    } finally {
+        setLoadingState(false, 'analyzeBtn', 'Analyze Upload');
+    }
+});
+
+// --- Live Camera Logic ---
+const video = document.getElementById('webcamVideo');
+const canvas = document.getElementById('webcamCanvas');
+let stream = null;
+
+document.getElementById('startCameraBtn').addEventListener('click', async function() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = stream;
+        video.classList.remove('d-none');
+        this.classList.add('d-none'); // Hide start button
+        document.getElementById('captureAnalyzeBtn').classList.remove('d-none'); // Show capture button
+    } catch (err) {
+        alert("Camera access denied or unavaliable: " + err.message);
+    }
+});
+
+document.getElementById('captureAnalyzeBtn').addEventListener('click', async function() {
+    if (!stream) return;
+    
+    // Draw current video frame to canvas
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert canvas to Base64 JPEG
+    const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+    const category = document.getElementById('category').value;
+    
+    setLoadingState(true, 'captureAnalyzeBtn', 'Capture & Analyze Snapshot');
+    try {
+        const response = await fetch('/analyze_live', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                image_base64: base64Image,
+                category: category
+            })
+        });
+        const data = await response.json();
+        handleAnalysisResult(data);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Connection Error during live snapshot.');
+    } finally {
+        setLoadingState(false, 'captureAnalyzeBtn', 'Capture & Analyze Snapshot');
+    }
+});
+</script>
+{% endblock %}

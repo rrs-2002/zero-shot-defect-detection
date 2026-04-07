@@ -1,0 +1,51 @@
+Section,Attribute,WinCLIP (This Project),AnomalyCLIP,AdaptCLIP,AnomalyGPT,FiLo
+Model Overview,Model Name,WinCLIP (this project),AnomalyCLIP,AdaptCLIP,AnomalyGPT,FiLo
+Model Overview,Core Architecture,Window-based CLIP with compositional prompt ensemble,Object-agnostic text prompt learning with CLIP backbone,Hybrid static + dynamic learnable prompts with alternating visual/textual optimization,LLM integrated with a Vision-Language Model (VLM),LLM + Grounding DINO for fine-grained visual grounding
+Model Overview,Key Strengths,Sliding window analysis excels at finding fine structural anomalies and missing components,Learns generalizable object-agnostic prompts — excels on texture-heavy categories,Adapts dynamically to each test image without training data,No manual threshold tuning; supports multi-turn textual reasoning,Targets micro-defects by grounding text descriptions to precise image regions
+Model Overview,Limitations,Lower global classification AUROC compared to newer methods; slower on CPU,Less specialized for fine structural / logical anomalies,Computationally heavier at inference due to dynamic adaptation,High computational cost; latency unsuitable for real-time lines,Requires multiple heavy models increasing deployment complexity
+Model Overview,Best Use Case,Structural defects and small missing components on rigid objects,Texture-based defect detection across wide range of objects,High-variability appearance settings without training data,Interactive explainable inspection pipelines,Micro-defect detection requiring exact text-to-region grounding
+,,,,,,
+Benchmark Metrics,Avg AU-ROC (MVTec AD),71.55%,~91.6%,~89.6%,N/A (LLM-based),State-of-the-Art
+Benchmark Metrics,Avg F1-Score (MVTec AD),89.03%,N/A,N/A,N/A,N/A
+Benchmark Metrics,Evaluation Setup,15 categories / 30 imgs per subfolder / T4 GPU,Full MVTec AD benchmark,Full MVTec AD benchmark,Custom benchmark,Custom benchmark
+Benchmark Metrics,Training Data Required,0 images (zero-shot),0 images (zero-shot),0 images (zero-shot),0 images (zero-shot),0 images (zero-shot)
+,,,,,,
+Per-Category AU-ROC,bottle,93.49%,,,,
+Per-Category AU-ROC,cable,55.69%,,,,
+Per-Category AU-ROC,capsule,69.68%,,,,
+Per-Category AU-ROC,carpet,67.78%,,,,
+Per-Category AU-ROC,grid,78.86%,,,,
+Per-Category AU-ROC,hazelnut,75.67%,,,,
+Per-Category AU-ROC,leather,95.00%,,,,
+Per-Category AU-ROC,metal_nut,33.77%,,,,
+Per-Category AU-ROC,pill,33.42%,,,,
+Per-Category AU-ROC,screw,87.56%,,,,
+Per-Category AU-ROC,tile,94.33%,,,,
+Per-Category AU-ROC,toothbrush,57.22%,,,,
+Per-Category AU-ROC,transistor,68.42%,,,,
+Per-Category AU-ROC,wood,97.54%,,,,
+Per-Category AU-ROC,zipper,64.82%,,,,
+,,,,,,
+Per-Category F1-Score,bottle,93.33%,,,,
+Per-Category F1-Score,cable,86.38%,,,,
+Per-Category F1-Score,capsule,91.53%,,,,
+Per-Category F1-Score,carpet,86.41%,,,,
+Per-Category F1-Score,grid,86.36%,,,,
+Per-Category F1-Score,hazelnut,82.84%,,,,
+Per-Category F1-Score,leather,93.99%,,,,
+Per-Category F1-Score,metal_nut,89.42%,,,,
+Per-Category F1-Score,pill,91.56%,,,,
+Per-Category F1-Score,screw,92.43%,,,,
+Per-Category F1-Score,tile,94.12%,,,,
+Per-Category F1-Score,toothbrush,84.06%,,,,
+Per-Category F1-Score,transistor,77.23%,,,,
+Per-Category F1-Score,wood,96.72%,,,,
+Per-Category F1-Score,zipper,89.14%,,,,
+,,,,,,
+Deployment,Hardware Requirement,Standard CPU or GPU,Dedicated GPU,Dedicated GPU,High-End Multi-GPU Server,High-End Multi-GPU Server
+Deployment,Time to Deploy,Under 5 minutes,Hours,Hours,Days,Days
+Deployment,System Complexity,Low (Flask Backend + Dashboard),Medium,High (Joint Modality Tuning),Extremely High (Needs LLM),Extremely High (Needs DINO + LLM)
+Deployment,End-User Interface,Built-in Dashboard GUI,None (Code only),None (Code only),Chatbot Interface,None (Code only)
+Deployment,Inference Speed,Moderate (Patch-by-Patch),Moderate,Slow (Adapts per image),Very Slow (Text Generation),Very Slow (Two heavy models)
+Deployment,Production Cost,Minimal (Free/Open Source),High,High,Massive,Huge
+Deployment,Defect Localization,Heatmap Overlay,Heatmap Overlay,Heatmap Overlay,Text + Bounding Boxes,Text + Bounding Boxes

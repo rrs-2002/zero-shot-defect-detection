@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.vscode/
+models/cache/
+docs/
+data/raw/
+*.zip
+*.tar.gz
+.env
+*.txt
