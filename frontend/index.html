@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WinCLIP — Zero-Shot Defect Detection</title>
+    <meta name="description"
+        content="Zero-shot industrial anomaly detection powered by WinCLIP. Upload product images to detect defects without any training data.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ============================
+           CSS VARIABLES & RESET
+           ============================ */
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.8);
+            --bg-card-hover: rgba(31, 41, 55, 0.9);
+            --border-color: rgba(99, 102, 241, 0.2);
+            --border-glow: rgba(99, 102, 241, 0.5);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --warning: #f59e0b;
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.15);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ============================
+           ANIMATED BACKGROUND
+           ============================ */
+        .bg-mesh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(99, 102, 241, 0.03) 0%, transparent 70%);
+            animation: meshFloat 15s ease-in-out infinite;
+        }
+
+        @keyframes meshFloat {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        /* ============================
+           LAYOUT
+           ============================ */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px 24px 60px;
+        }
+
+        /* ============================
+           HEADER
+           ============================ */
+        .header {
+            text-align: center;
+            padding: 40px 0 32px;
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--accent-primary);
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .header-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
+        }
+
+        .header h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+            line-height: 1.1;
+        }
+
+        .header p {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ============================
+           STATUS BAR
+           ============================ */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin: 28px 0;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-dot.green {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .status-dot.blue {
+            background: var(--accent-primary);
+            box-shadow: 0 0 8px var(--accent-primary);
+        }
+
+        /* ============================
+           MAIN GRID
+           ============================ */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ============================
+           CARDS
+           ============================ */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-header {
+            padding: 20px 24px 0;
+        }
+
+        .card-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-body {
+            padding: 20px 24px 24px;
+        }
+
+        /* ============================
+           FORM CONTROLS
+           ============================ */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: var(--transition);
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        /* ============================
+           UPLOAD AREA
+           ============================ */
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .upload-area .icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .upload-area .title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .upload-area .subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .upload-area input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .preview-container {
+            display: none;
+            position: relative;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            margin-top: 0;
+        }
+
+        .preview-container img {
+            width: 100%;
+            height: 200px;
+            object-fit: contain;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+        }
+
+        .preview-remove {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .preview-remove:hover {
+            background: var(--danger);
+        }
+
+        /* ============================
+           BUTTONS
+           ============================ */
+        .btn-primary {
+            width: 100%;
+            padding: 14px 24px;
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: var(--radius-sm);
+            color: white;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* ============================
+           SPINNER
+           ============================ */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn-primary.loading .spinner {
+            display: block;
+        }
+
+        .btn-primary.loading .btn-text {
+            display: none;
+        }
+
+        /* ============================
+           OUTPUT AREA
+           ============================ */
+        .output-card {
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output-placeholder {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            color: var(--text-muted);
+            padding: 60px 24px;
+        }
+
+        .output-placeholder .icon {
+            font-size: 4rem;
+            opacity: 0.3;
+        }
+
+        .output-placeholder p {
+            font-size: 0.95rem;
+            text-align: center;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+
+        .output-image-container {
+            display: none;
+            padding: 24px;
+        }
+
+        .output-image-container img {
+            width: 100%;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* ============================
+           RESULT METRICS
+           ============================ */
+        .result-metrics {
+            display: none;
+            padding: 0 24px 24px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .metric-value.normal {
+            color: var(--success);
+        }
+
+        .metric-value.defect {
+            color: var(--danger);
+        }
+
+        .metric-value.score {
+            color: var(--accent-primary);
+        }
+
+        .metric-value.category {
+            color: var(--warning);
+            font-size: 1rem;
+            text-transform: capitalize;
+        }
+
+        /* ============================
+           ERROR STATE
+           ============================ */
+        .error-banner {
+            display: none;
+            background: var(--danger-bg);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-sm);
+            padding: 14px 18px;
+            margin: 12px 24px;
+            color: var(--danger);
+            font-size: 0.85rem;
+        }
+
+        /* ============================
+           HOW IT WORKS SECTION
+           ============================ */
+        .how-it-works {
+            margin-top: 40px;
+        }
+
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--text-primary);
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .step-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 24px;
+            text-align: center;
+            transition: var(--transition);
+        }
+
+        .step-card:hover {
+            border-color: var(--border-glow);
+            transform: translateY(-4px);
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 14px;
+        }
+
+        .step-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .step-card p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* ============================
+           FOOTER
+           ============================ */
+        .footer {
+            text-align: center;
+            padding: 40px 0 20px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .footer a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ============================
+           CONNECTION SETTINGS
+           ============================ */
+        .settings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-bottom: 16px;
+            width: 100%;
+        }
+
+        .settings-toggle:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .settings-panel {
+            display: none;
+            margin-bottom: 16px;
+        }
+
+        .settings-panel.open {
+            display: block;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'Inter', monospace;
+            font-size: 0.82rem;
+            transition: var(--transition);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .form-hint {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-mesh"></div>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-badge">
+                <span class="dot"></span>
+                WinCLIP Architecture — Zero-Shot Detection
+            </div>
+            <h1>Defect Detection AI</h1>
+            <p>Upload a product image to detect manufacturing defects using vision-language AI. No training data
+                required.</p>
+        </header>
+
+        <!-- STATUS BAR -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-dot green" id="statusDot"></span>
+                <span id="statusText">Model Ready</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot blue"></span>
+                <span>CLIP ViT-B/32</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot blue"></span>
+                <span>15 Categories</span>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-grid">
+            <!-- LEFT: Controls -->
+            <div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>⚙️ Configuration</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- API Endpoint Settings -->
+                        <button class="settings-toggle" id="settingsToggle" type="button">
+                            🔗 API Connection Settings
+                            <span style="margin-left:auto;">▾</span>
+                        </button>
+                        <div class="settings-panel" id="settingsPanel">
+                            <div class="form-group" style="margin-bottom:12px;">
+                                <label class="form-label">Hugging Face Space URL</label>
+                                <input type="text" class="form-input" id="apiUrl"
+                                    placeholder="https://your-username-winclip.hf.space"
+                                    value="https://rrs-2002-winclip-defect-detection.hf.space">
+                                <p class="form-hint">Point this to your deployed HF Space. The Gradio API will be used
+                                    automatically.</p>
+                            </div>
+                        </div>
+
+                        <!-- Category Selector -->
+                        <div class="form-group">
+                            <label class="form-label">Product Category</label>
+                            <select class="form-select" id="categorySelect">
+                                <option value="bottle">Bottle</option>
+                                <option value="cable">Cable</option>
+                                <option value="capsule">Capsule</option>
+                                <option value="carpet">Carpet</option>
+                                <option value="grid">Grid</option>
+                                <option value="hazelnut">Hazelnut</option>
+                                <option value="leather">Leather</option>
+                                <option value="metal_nut">Metal Nut</option>
+                                <option value="pill">Pill</option>
+                                <option value="screw">Screw</option>
+                                <option value="tile">Tile</option>
+                                <option value="toothbrush">Toothbrush</option>
+                                <option value="transistor">Transistor</option>
+                                <option value="wood">Wood</option>
+                                <option value="zipper">Zipper</option>
+                            </select>
+                        </div>
+
+                        <!-- Upload Area -->
+                        <div class="form-group">
+                            <label class="form-label">Product Image</label>
+                            <div class="upload-area" id="uploadArea">
+                                <div class="icon">📷</div>
+                                <div class="title">Drop image here or click to browse</div>
+                                <div class="subtitle">Supports JPG, PNG, WEBP</div>
+                                <input type="file" id="fileInput" accept="image/*">
+                            </div>
+                            <div class="preview-container" id="previewContainer">
+                                <img id="previewImage" src="" alt="Preview">
+                                <button class="preview-remove" id="removeBtn" type="button">✕</button>
+                            </div>
+                        </div>
+
+                        <!-- Analyze Button -->
+                        <button class="btn-primary" id="analyzeBtn" disabled>
+                            <span class="spinner"></span>
+                            <span class="btn-text">🚀 Analyze for Defects</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Output -->
+            <div>
+                <div class="card output-card">
+                    <div class="card-header">
+                        <h2>🔥 Defect Heatmap Result</h2>
+                    </div>
+
+                    <!-- Placeholder -->
+                    <div class="output-placeholder" id="outputPlaceholder">
+                        <div class="icon">🔬</div>
+                        <p>Upload an image and click <strong>Analyze</strong> to see the defect heatmap overlay</p>
+                    </div>
+
+                    <!-- Error -->
+                    <div class="error-banner" id="errorBanner"></div>
+
+                    <!-- Result Image -->
+                    <div class="output-image-container" id="outputImageContainer">
+                        <img id="outputImage" src="" alt="Defect Heatmap">
+                    </div>
+
+                    <!-- Metrics -->
+                    <div class="result-metrics" id="resultMetrics">
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-label">Status</div>
+                                <div class="metric-value" id="metricStatus">—</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Anomaly Score</div>
+                                <div class="metric-value score" id="metricScore">—</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Category</div>
+                                <div class="metric-value category" id="metricCategory">—</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Threshold</div>
+                                <div class="metric-value score" id="metricThreshold">0.75</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOW IT WORKS -->
+        <section class="how-it-works">
+            <h2>How It Works</h2>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Upload Image</h3>
+                    <p>Select a product category and upload an image of the item to be inspected.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Sliding Window</h3>
+                    <p>The AI scans the image using 224×224 pixel patches with 75% overlap for full coverage.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>CLIP Analysis</h3>
+                    <p>Each patch is compared against 136 text prompts describing normal and defective states.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3>Heatmap Result</h3>
+                    <p>A color-coded heatmap overlay shows defect locations. Red = defect, Blue = normal.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            <p>Built by <strong>Ritu Raj Singh</strong> · KIIT University · M.Tech CSE</p>
+            <p style="margin-top:6px;">
+                <a href="https://github.com/rrs-2002/zero-shot-defect-detection" target="_blank">GitHub</a> ·
+                Powered by <a href="https://huggingface.co" target="_blank">Hugging Face</a> + OpenAI CLIP
+            </p>
+        </footer>
+    </div>
+
+    <!-- ============================
+         JAVASCRIPT
+         ============================ -->
+    <script type="module">
+        import { client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+        // --- DOM Elements ---
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImage = document.getElementById('previewImage');
+        const removeBtn = document.getElementById('removeBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const categorySelect = document.getElementById('categorySelect');
+        const apiUrlInput = document.getElementById('apiUrl');
+        const settingsToggle = document.getElementById('settingsToggle');
+        const settingsPanel = document.getElementById('settingsPanel');
+
+        const outputPlaceholder = document.getElementById('outputPlaceholder');
+        const outputImageContainer = document.getElementById('outputImageContainer');
+        const outputImage = document.getElementById('outputImage');
+        const resultMetrics = document.getElementById('resultMetrics');
+        const errorBanner = document.getElementById('errorBanner');
+
+        let selectedFile = null;
+
+        // --- Settings Toggle ---
+        settingsToggle.addEventListener('click', () => {
+            settingsPanel.classList.toggle('open');
+        });
+
+        // --- Persist API URL ---
+        const savedUrl = localStorage.getItem('hf_api_url');
+        if (savedUrl) apiUrlInput.value = savedUrl;
+        apiUrlInput.addEventListener('change', () => {
+            localStorage.setItem('hf_api_url', apiUrlInput.value.trim());
+        });
+
+        // --- File Upload ---
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) handleFile(file);
+        });
+
+        function handleFile(file) {
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewContainer.style.display = 'block';
+                uploadArea.style.display = 'none';
+                analyzeBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        removeBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            previewContainer.style.display = 'none';
+            uploadArea.style.display = 'block';
+            analyzeBtn.disabled = true;
+        });
+
+        // --- Analyze ---
+        analyzeBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            const apiUrl = apiUrlInput.value.trim();
+            if (!apiUrl) {
+                alert('Please set your Hugging Face Space URL in the API Connection Settings.');
+                settingsPanel.classList.add('open');
+                apiUrlInput.focus();
+                return;
+            }
+
+            // Set loading state
+            analyzeBtn.classList.add('loading');
+            analyzeBtn.disabled = true;
+            errorBanner.style.display = 'none';
+            outputPlaceholder.innerHTML = `
+                <div class="icon" style="font-size:2rem;">⏳</div>
+                <p>Analyzing image... This may take 10-30 seconds on first run while the model loads.</p>
+            `;
+            outputPlaceholder.style.display = 'flex';
+            outputImageContainer.style.display = 'none';
+            resultMetrics.style.display = 'none';
+
+            try {
+                const category = categorySelect.value;
+                const baseUrl = apiUrl.replace(/\/+$/, '');
+
+                // Initialize Gradio client
+                const app = await client(baseUrl);
+
+                // Call the API (Gradio client handles File objects directly)
+                const result = await app.predict("predict", [
+                    selectedFile, // File object
+                    category      // String
+                ]);
+
+                if (!result.data) {
+                    throw new Error('No valid response received from the model.');
+                }
+
+                // Parse response
+                const outputImg = result.data[0];
+                const resultText = result.data[1];
+
+                // Display output image
+                if (outputImg && typeof outputImg === 'object' && outputImg.url) {
+                    outputImage.src = outputImg.url;
+                } else if (typeof outputImg === 'string') {
+                    outputImage.src = outputImg;
+                }
+
+                outputPlaceholder.style.display = 'none';
+                outputImageContainer.style.display = 'block';
+                resultMetrics.style.display = 'block';
+
+                // Parse metrics from markdown text
+                parseAndDisplayMetrics(resultText, category);
+
+            } catch (error) {
+                console.error('Analysis failed:', error);
+                errorBanner.textContent = `Error: ${error.message}. Make sure your HF Space is running and the URL is correct. Check browser console for details.`;
+                errorBanner.style.display = 'block';
+                outputPlaceholder.style.display = 'none';
+            } finally {
+                analyzeBtn.classList.remove('loading');
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        function parseAndDisplayMetrics(text, category) {
+            // Extract score from markdown: **Anomaly Score:** 0.4523
+            const scoreMatch = text.match(/Anomaly Score:\*\*\s*([\d.]+)/);
+            const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+
+            const isDefect = text.includes('Defect Detected');
+
+            const statusEl = document.getElementById('metricStatus');
+            statusEl.textContent = isDefect ? '🔴 DEFECT' : '🟢 NORMAL';
+            statusEl.className = `metric-value ${isDefect ? 'defect' : 'normal'}`;
+
+            document.getElementById('metricScore').textContent = score.toFixed(4);
+            document.getElementById('metricCategory').textContent = category;
+        }
+    </script>
+</body>
+
+</html>

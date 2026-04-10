@@ -1,7 +1,7 @@
 # Zero-Shot Defect Detection
 
 ## Project Overview
-This project implements a **Zero-Shot Industrial Anomaly Detection** system using **WinCLIP (Window-based CLIP)**. The core objective is to detect and precisely localize defects on manufactured components without requiring *any* prior training on defect data. It includes a Flask-based interactive web dashboard for real-time visual analysis.
+This project implements a **Zero-Shot Industrial Anomaly Detection** system using **WinCLIP (Window-based CLIP)**. The core objective is to detect and precisely localize defects on manufactured components without requiring *any* prior training on defect data. It includes a Flask-based interactive web dashboard for real-time visual analysis, as well as a cloud-ready deployment architecture (Gradio on Hugging Face Spaces + GitHub Pages Frontend).
 
 ---
 
@@ -14,9 +14,11 @@ This project implements a **Zero-Shot Industrial Anomaly Detection** system usin
 - [Benchmarking and Evaluation](#4-benchmarking-and-evaluation)
 - [Directory Structure](#directory-structure)
 - [File-Level Description](#file-level-description)
-- [Setup & Installation](#setup--installation)
+- [Setup & Installation (Local)](#setup--installation-local)
+- [Cloud Deployment (Hugging Face + GitHub Pages)](#cloud-deployment-hugging-face--github-pages)
 - [Dashboard Usage](#dashboard-usage)
 - [Testing](#testing)
+- [Evaluation & Benchmarking](#evaluation--benchmarking)
 
 ---
 
@@ -31,8 +33,10 @@ This project implements a **Zero-Shot Industrial Anomaly Detection** system usin
 | **Background Removal** | rembg, ONNX Runtime | AI-based foreground extraction for live camera analysis |
 | **Scientific Computing** | NumPy, SciPy | Array operations, Gaussian smoothing of heatmaps |
 | **ML Metrics** | scikit-learn | AU-ROC, F1-Score, Precision-Recall curve computation |
-| **Web Framework** | Flask | Backend API and server-side rendering |
-| **Frontend** | Bootstrap 5, Jinja2 Templates | Responsive dashboard UI |
+| **Local Web Framework**| Flask | Local backend API and server-side rendering for the web dashboard |
+| **Local Frontend**| Bootstrap 5, Jinja2 Templates | Responsive local dashboard UI |
+| **Cloud Backend API**| Gradio, Hugging Face Spaces | Cloud hosting API for the ML inference pipeline |
+| **Cloud Frontend** | GitHub Pages, `@gradio/client`, Vanilla CSS/JS | Static decoupled frontend for robust production inference calls |
 | **Data Analysis** | Pandas, Matplotlib, Seaborn | Data manipulation and visualization |
 | **Notebooks** | Jupyter | Interactive exploration and prototyping |
 | **Utilities** | tqdm, ftfy, regex | Progress bars, text fixing for CLIP tokenization |
@@ -100,67 +104,39 @@ Implementation/
 ├── requirements.txt            # Python dependency list
 ├── README.md                   # This documentation file
 │
-├── app/                        # Flask web application (frontend + API)
-│   ├── __init__.py             # App factory — creates and configures the Flask app
-│   ├── routes.py               # Route definitions (/, /dashboard, /analyze, /analyze_live)
+├── app/                        # Local Flask web application (frontend + API)
+│   ├── __init__.py             # App factory
+│   ├── routes.py               # Route definitions
 │   ├── templates/              # Jinja2 HTML templates
-│   │   ├── base.html           # Base layout with navbar and Bootstrap 5 CDN
-│   │   ├── index.html          # Landing/home page with redirect to dashboard
-│   │   └── dashboard.html      # Main interactive dashboard (upload + live camera)
 │   └── static/                 # Static web assets
-│       ├── css/
-│       │   └── style.css       # Custom stylesheet
-│       ├── js/
-│       │   └── script.js       # Custom JavaScript
-│       ├── uploads/            # Temporary storage for user-uploaded images
-│       └── results/            # Generated heatmap overlay images
+│
+├── frontend/                   # Cloud-ready Standalone HTML/JS Frontend (for GitHub Pages)
+│   └── index.html              # Frontend utilizing @gradio/client for Hugging Face API interactions
+│
+├── huggingface/                # Gradio-based Headless Backend (for Hugging Face Spaces)
+│   ├── app.py                  # Gradio API application wrapping WinCLIP
+│   ├── requirements.txt        # Hugging Face deployment dependencies
+│   └── README.md               # HF Space configuration file
 │
 ├── src/                        # Core ML pipeline source code
-│   ├── __init__.py             # Package initializer
-│   ├── config.py               # Central configuration (paths, hyperparameters, prompts)
-│   ├── evaluate.py             # Benchmark evaluation script (AU-ROC, F1-Score)
-│   ├── create_model_comparison.py  # Generates comparative analysis JSON/CSV
-│   ├── models/                 # ML model implementations
-│   │   ├── __init__.py         # Package initializer
-│   │   ├── winclip.py          # WinCLIP zero-shot anomaly detection model
-│   │   ├── architecture.py     # Model architecture definitions
-│   │   ├── predict.py          # Prediction utilities
-│   │   └── train.py            # Training utilities (reserved for future use)
-│   ├── data/                   # Data handling modules
-│   │   ├── __init__.py         # Package initializer
-│   │   ├── loader.py           # Dataset loading and sampling utilities
-│   │   └── preprocessing.py    # Image preprocessing utilities
-│   └── utils/                  # Shared utility modules
-│       ├── __init__.py         # Package initializer
-│       ├── visualization.py    # Heatmap overlay generation using OpenCV
-│       └── logger.py           # Logging utilities
+│   ├── config.py               # Central configuration
+│   ├── evaluate.py             # Benchmark evaluation script
+│   ├── create_model_comparison.py  
+│   ├── models/                 # ML model implementations (WinCLIP, architecture, predict)
+│   ├── data/                   # Data handling and preprocessing routines
+│   └── utils/                  # Shared utilities (heatmap generation, logging)
 │
-├── data/                       # Data storage
-│   ├── raw/                    # Raw, unprocessed data
-│   │   └── Datasets/
-│   │       ├── archive/        # Extracted MVTec AD dataset (15 categories)
-│   │       └── archive.zip     # Original MVTec AD download (~5 GB)
-│   └── processed/              # Processed outputs and analysis results
-│       ├── model_comparison.json   # Comparative model benchmark data (JSON)
-│       └── Comparison_Matrix.csv   # Evaluation comparison matrix (CSV)
+├── data/                       # Data storage (MVTec AD)
+│   ├── raw/                    # Raw datasets
+│   └── processed/              # Processed model benchmark data JSON/CSV
 │
 ├── models/                     # Model artifacts directory (downloaded weights cache)
 │
 ├── notebooks/                  # Jupyter notebooks for exploration and prototyping
 │
 ├── docs/                       # Documentation and presentations
-│   └── presentations/          # LaTeX presentation source and compiled PDFs
-│       ├── presentation.tex    # Initial presentation slide deck (LaTeX source)
-│       ├── presentation.pdf    # Compiled initial presentation
-│       ├── final_review.tex    # Final review presentation (LaTeX source)
-│       ├── final_review.pdf    # Compiled final review presentation
-│       └── *.aux, *.log, ...   # LaTeX compilation artifacts
 │
-├── tests/                      # Automated test suite
-│   ├── test_model.py           # Unit tests for model loading and text encoding
-│   └── test_inference.py       # End-to-end inference test with sample images
-│
-└── .venv/                      # Python virtual environment (not tracked in version control)
+└── tests/                      # Automated test suite (unit and integration)
 ```
 
 ---
@@ -172,26 +148,39 @@ Implementation/
 | File | Purpose |
 |---|---|
 | `run.py` | Application entry point. Imports the Flask app factory from `app/__init__.py` and starts the development server on `http://127.0.0.1:5000`. |
-| `run_dashboard.bat` | Convenience Windows batch script that sets `FLASK_APP` and `FLASK_ENV` environment variables and launches the Flask dashboard. |
+| `run_dashboard.bat` | Convenience Windows batch script that sets `FLASK_APP` and `FLASK_ENV` environment variables and launches the local Flask dashboard. |
 | `run_evaluation.bat` | Interactive batch script that prompts the user for a category name (e.g., `bottle`) and runs `src/evaluate.py` to benchmark that category. |
 | `run_tests.bat` | Batch script that sequentially executes `test_model.py` and `test_inference.py` from the `tests/` directory. |
-| `requirements.txt` | Lists all 18 Python dependencies required by the project (Flask, PyTorch, Transformers, OpenCV, rembg, etc.). |
+| `requirements.txt` | Lists all Python dependencies required by the project (Flask, PyTorch, Transformers, OpenCV, rembg, etc.). |
 
 ---
 
-### `app/` — Flask Web Application
+### `frontend/` — Standalone Cloud Frontend
 
 | File | Purpose |
 |---|---|
-| `__init__.py` | **App factory function** (`create_app()`). Creates a Flask instance, loads configuration from `src.config.Config`, and registers the `main` Blueprint from `routes.py`. |
-| `routes.py` | Defines 4 Flask routes: `GET /` (home), `GET /dashboard` (main UI), `POST /analyze` (image upload inference), `POST /analyze_live` (webcam snapshot inference with `rembg` background removal). Lazy-loads the WinCLIP model on first request. |
-| `templates/base.html` | Jinja2 base template providing the HTML skeleton, Bootstrap 5.3 CDN, dark-themed navbar, and block placeholders for child templates. |
-| `templates/index.html` | Landing page extending `base.html`. Displays a hero banner with a call-to-action button redirecting to the dashboard. |
-| `templates/dashboard.html` | Primary interactive UI with a tabbed interface (Upload / Live Camera), a category dropdown selector for all 15 MVTec AD object types, analysis result cards (status + anomaly score), and the heatmap visualization area. Contains embedded JavaScript for async form submissions and WebRTC camera access. |
-| `static/css/style.css` | Custom CSS stylesheet for additional styling beyond Bootstrap defaults. |
-| `static/js/script.js` | Custom JavaScript file for any additional frontend logic. |
-| `static/uploads/` | Temporary directory where user-uploaded and live-captured images are saved before inference. |
-| `static/results/` | Directory where generated heatmap overlay result images are saved and served to the frontend. |
+| `index.html` | A static HTML/JS frontend engineered for GitHub Pages deployment. It uses the `@gradio/client` module to seamlessly connect to the remote WinCLIP backend hosted on Hugging Face Spaces, offering a fully decoupled production web UI. |
+
+---
+
+### `huggingface/` — Cloud Backend API
+
+| File | Purpose |
+|---|---|
+| `app.py` | A Gradio application that adapts the WinCLIP model for cloud deployment. It wraps the core prediction logic to expose inference as an API endpoint, connecting cleanly with `@gradio/client`. |
+| `README.md` | Contains Hugging Face Space metadata (SDK version, hardware config) required for deployment. |
+| `requirements.txt` | Dependency list explicitly filtered for the Hugging Face Space cloud environment. |
+
+---
+
+### `app/` — Local Flask Web Application
+
+| File | Purpose |
+|---|---|
+| `__init__.py` | **App factory function** (`create_app()`). Creates a Flask instance, loads configuration from `src.config.Config`. |
+| `routes.py` | Defines Flask routes. Lazy-loads the WinCLIP model locally on the first request. |
+| `templates/...` | Jinja2 templates (`base.html`, `index.html`, `dashboard.html`) for the local UI interface. |
+| `static/...` | Custom CSS/JS and temporary save locations for images during local operations. |
 
 ---
 
@@ -199,52 +188,23 @@ Implementation/
 
 | File | Purpose |
 |---|---|
-| `config.py` | **Central configuration class** defining: project paths (`BASE_DIR`, `DATA_DIR`, `MODEL_DIR`), model hyperparameters (`MODEL_NAME`, `WINDOW_SIZE=224×224`, `STRIDE=56`), the 15 MVTec AD object categories, and prompt engineering templates (7 normal states × 8 templates + 10 defect states × 8 templates = 136 prompts per category). |
-| `models/winclip.py` | **Core model implementation**. The `WinCLIP` class loads the CLIP ViT-B/32 model from HuggingFace, provides `encode_text()` for prompt ensemble generation, `extract_windows()` for sliding-window patch extraction, and `predict()` that orchestrates the full pipeline: text encoding → patch extraction → batch inference → heatmap aggregation → Gaussian smoothing → score normalization. |
-| `models/architecture.py` | Model architecture definitions (supplementary to the main WinCLIP implementation). |
-| `models/predict.py` | Standalone prediction utility functions. |
-| `models/train.py` | Training utilities (reserved; the zero-shot approach does not require training). |
-| `data/loader.py` | The `DataLoader` class provides `load_image()` for robust image loading with RGB conversion and `get_sample_image()` to randomly select test images from the MVTec dataset (prioritizing defect subfolders over "good" for demonstration purposes). |
-| `data/preprocessing.py` | Image preprocessing utilities for data pipeline operations. |
-| `utils/visualization.py` | The `Visualizer` class provides `save_results()` which takes a PIL image and heatmap array, applies a JET colormap via OpenCV, blends it as a 40% overlay on the original image, and saves the result to `app/static/results/`. |
-| `utils/logger.py` | Logging utility for structured application logging. |
-| `evaluate.py` | **Benchmark evaluation script**. Iterates through all test images in a given MVTec category (both "good" and defect subfolders), runs WinCLIP inference on each, collects true labels and predicted anomaly scores, then computes AU-ROC and optimal F1-Score using scikit-learn. Runnable from CLI: `python src/evaluate.py <category>`. |
-| `create_model_comparison.py` | Runs `evaluate.py` across all available MVTec categories (sampling 10 images per subfolder for speed), computes averaged metrics, and saves a comprehensive JSON comparison against 4 state-of-the-art models (AnomalyCLIP, AdaptCLIP, AnomalyGPT, FiLo) to `data/processed/model_comparison.json`. |
+| `config.py` | **Central configuration class** defining paths, hyperparameters (`MODEL_NAME`, `WINDOW_SIZE=224×224`), and prompt templates (136 total). |
+| `models/winclip.py` | **Core model implementation**. The `WinCLIP` class loads the CLIP model, extracts sliding window patches, and aggregates predictions into heatmaps. |
+| `evaluate.py` | **Benchmark evaluation script**. Computes AU-ROC and optimal F1-Score against the datasets. |
+| `create_model_comparison.py` | Auto-generates detailed JSON comparative analysis against academic models. |
+
+*(See the `src/utils` and `src/data` directories for logging, visualization, and preprocessing pipelines).*
 
 ---
 
-### `data/` — Data Storage
+### `data/` & `tests/`
 
-| Path | Purpose |
-|---|---|
-| `raw/Datasets/archive/` | Extracted MVTec AD dataset. Contains 15 category folders, each with `train/` (normal images) and `test/` (normal + various defect subfolders) splits, plus `ground_truth/` pixel-level masks. |
-| `raw/Datasets/archive.zip` | Original MVTec AD dataset archive (~5 GB compressed). |
-| `processed/model_comparison.json` | Auto-generated JSON file containing detailed comparative analysis of WinCLIP against 4 research models, including architecture, strengths, limitations, and benchmark scores. |
-| `processed/Comparison_Matrix.csv` | CSV evaluation comparison matrix covering 10 criteria (hardware, training data, deployment time, cost, AU-ROC, etc.) across all 5 models. |
+- **`data/`:** Contains the raw downloaded MVTec dataset (`data/raw/`) and benchmarking tables (`data/processed/Comparison_Matrix.csv`).
+- **`tests/`:** Validation suite enforcing model loading sanity (`test_model.py`) and an end-to-end local inference check (`test_inference.py`).
 
 ---
 
-### `tests/` — Automated Test Suite
-
-| File | Purpose |
-|---|---|
-| `test_model.py` | **Unit tests** (using `unittest`): validates that the WinCLIP model loads successfully (`model` and `processor` are not `None`) and that text encoding produces the expected shape `[2, feature_dim]`. |
-| `test_inference.py` | **Integration test**: loads a sample image from the MVTec dataset (falls back to a synthetic 224×224 red image), runs the full `predict()` pipeline, and verifies that a valid heatmap and anomaly score are produced. |
-
----
-
-### `docs/presentations/` — Documentation
-
-| File | Purpose |
-|---|---|
-| `presentation.tex` | Initial project presentation slide deck written in LaTeX (Beamer). |
-| `presentation.pdf` | Compiled PDF of the initial presentation (~480 KB). |
-| `final_review.tex` | Final review presentation slide deck in LaTeX (Beamer). |
-| `final_review.pdf` | Compiled PDF of the final review presentation (~1.2 MB). |
-
----
-
-## Setup & Installation
+## Setup & Installation (Local)
 1. **Clone / Download the project** and navigate to the `Implementation/` directory.
 
 2. **Create a virtual environment** (recommended):
@@ -264,7 +224,7 @@ Implementation/
    - Place the extracted dataset at `data/raw/Datasets/archive/`
    - Each category folder should contain `train/`, `test/`, and `ground_truth/` subdirectories.
 
-5. **Run the Interactive Dashboard**:
+5. **Run the Interactive Local Dashboard**:
    Double-click `run_dashboard.bat` OR run:
    ```bash
    python run.py
@@ -273,25 +233,39 @@ Implementation/
 
 ---
 
+## Cloud Deployment (Hugging Face + GitHub Pages)
+We have implemented a decoupled architecture resolving performance issues by separating the frontend from the ML execution backend:
+
+1. **Backend (Hugging Face / Gradio):** 
+   - Deploy the contents of the `huggingface/` directory to a Hugging Face Space running Gradio.
+   - This sets up your dedicated, robust inference API.
+2. **Frontend (GitHub Pages):**
+   - Host `frontend/index.html` on GitHub Pages (or any static host). 
+   - Uses the `@gradio/client` to execute non-blocking, asynchronous prediction calls to your Hugging Face Space endpoint.
+
+---
+
 ## Dashboard Usage
+*(Applies fundamentally to both the local and cloud interfaces)*
 1. Select the **Object Category** (e.g., Bottle, Cable) from the dropdown.
 2. Choose an input method:
-   - **Upload Image**: Select an image file from the `data/raw/Datasets/archive/.../test/` directory.
-   - **Live Camera**: Grant webcam access, then capture a snapshot. The system automatically removes the background using `rembg` and places the object on a solid black background for MVTec-compatible analysis.
-3. Click **Analyze** (or **Capture & Analyze Snapshot** for camera mode).
+   - **Upload Image**: Select an image file.
+   - **Live Camera** *(supported locally)*: Grant webcam access and capture a snapshot (supports `rembg` background isolation).
+3. Click **Analyze**.
 4. View the resulting:
-   - **Status** — "Normal" or "Defect Detected" (threshold: anomaly score > 0.4)
-   - **Anomaly Score** — Raw maximum anomaly score
-   - **Heatmap** — JET colormap overlay highlighting suspected defect regions
+   - **Status** — "Normal" or "Defect Detected" (threshold logic)
+   - **Anomaly Score** — Raw confidence probability
+   - **Heatmap** — Overlay isolating suspected defect zones.
 
 ---
 
 ## Testing
-To run the automated unit tests, double-click `run_tests.bat` OR run:
+To run the automated unit tests locally:
 ```bash
 python tests/test_model.py
 python tests/test_inference.py
 ```
+*(Or double-click `run_tests.bat`)*
 
 ---
 
@@ -300,7 +274,6 @@ To evaluate WinCLIP on a specific MVTec AD category:
 ```bash
 python src/evaluate.py bottle
 ```
-Or double-click `run_evaluation.bat` and enter the category name when prompted.
 
 To regenerate the full comparative model benchmark:
 ```bash
